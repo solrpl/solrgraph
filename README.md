@@ -18,3 +18,14 @@ Simple tool allowing to visualize Solr graph query (http://solr.pl/en/2016/04/18
 * Support for any query user would like to run
 * Support for filtering in graph query
 * Support for all parameters allowed in graph query
+
+## Changes
+Changes introduced with each version.
+
+### 0.1 ###
+* Released 24.04.2016
+* Initial version
+* Allows providing basic information and visualize graph
+* No paging
+* No filtering
+* No control over q parameter
