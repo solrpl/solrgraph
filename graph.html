@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+<style>
+
+.link {
+	fill: none;
+ 	stroke: #600;
+  	stroke-width: 2px;
+}
+
+.node circle {
+	fill: #ccc;
+  	stroke: #fff;
+  	stroke-width: 3px;
+}
+
+</style>
+<body>
+<!-- Horizontal bar with setup -->	
+<div class="container">
+	<form role="form">
+	<div class="row">
+		<div class="col-sm-2">
+			<div class="form-group">
+			<label for="host">Solr host</label>
+			<input class="form-control" type="text" id="host" value="http://localhost:8983">
+			</div>
+		</div>
+		<div class="col-sm-2">
+			<div class="form-group">
+			<label for="collection">Collection</label>
+			<input class="form-control" type="text" id="collection" value="graph">
+			</div>
+		</div>
+		<div class="col-sm-1">
+			<div class="form-group">
+			<label for="parent">Parent</label>
+			<input class="form-control" type="text" id="parent" value="parent_id">
+			</div>
+		</div>
+		<div class="col-sm-1">
+			<div class="form-group">
+			<label for="identifier">Identifier</label>
+			<input class="form-control" type="text" id="identifier" value="id">
+			</div>
+		</div>
+		<div class="col-sm-2">
+			<div class="form-group">
+			<label for="display">Display field</label>
+			<input class="form-control" type="text" id="display" value="id">
+			</div>
+		</div>
+		<div class="col-sm-1">
+			<div class="form-group">
+			<label for="maxdocs">Max docs</label>
+			<input class="form-control" type="text" id="maxdocs" value="100">
+			</div>
+		</div>
+		<div class="col-sm-2">
+			<div class="form-group">
+			<label for="query">Query</label>
+			<input class="form-control" type="text" id="query" value='name:"root document"'>
+			</div>
+		</div>
+		<div class="col-sm-1">
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm-5">
+		</div>
+		<div class="col-sm-1">
+			<button type="button" style="vertical-align:middle" class="btn btn-success" onClick="startDrawing();">Draw</button>
+		</div>
+		<div class="col-sm-6">
+		</div>
+	</div>
+</form>
+</div>
+<!-- End of vertical bar -->	
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="//code.jquery.com/jquery-2.2.3.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+<script>
+function mouseover() {
+  d3.select(this).select("circle").transition()
+      .duration(750)
+      .attr("r", 32);
+}
+
+function mouseout() {
+  d3.select(this).select("circle").transition()
+      .duration(750)
+      .attr("r", 16);
+}
+
+function getLinks(data, from, to, id) {
+	var links = [];
+	var docs = data.response.docs;
+	for (var i in docs) {
+		var doc = docs[i];
+		if (doc[from] != null && doc[to] != null) {
+			var link = {};
+			link.source = doc[from];
+			link.target = doc[to];
+			link.disp = doc[id];
+			links.push(link);
+			var link = {};
+			link.source = doc[to];
+			link.target = doc[from];
+			link.disp = doc[id];
+			links.push(link);
+		} else if (doc.id != null) {
+			var link = {};
+			link.source = doc[to];
+			link.target = doc[to];
+			link.disp = doc[id];
+			links.push(link);
+		} 
+	}
+	
+	return links;
+}
+
+function getData(solr, collection, from, to, query, id, maxDocs) {
+	var url = solr + "/solr/" + collection + "/select?q=*:*&rows=" + maxDocs + "&wt=json&fq={!graph from=" + from + " to=" + to + "}" + query;
+	$.get( url, function( data ) {
+	 	var parsedData = JSON.parse(data);
+	 	var links = getLinks(parsedData, from, to, id);
+	  	display(links);
+	}).fail( function( data ) { 
+		alert('Error running request, message: \n' + data.responseText);
+	});
+}
+
+function startDrawing() {
+	var solrHost = $("#host").val();
+	var collection = $("#collection").val();
+	var parentField = $("#parent").val();
+	var identifier = $("#identifier").val();
+	var displayField = $("#display").val();
+	var query = $("#query").val();
+	var maxDocs = $("#maxdocs").val();
+	d3.select("svg").remove();	
+	getData(solrHost, collection, parentField, identifier, query, displayField, maxDocs);
+}
+
+function display(links) {
+	var nodes = {};
+	
+	// Compute the distinct nodes from the links.
+	links.forEach(function(link) {
+	  link.source = nodes[link.source] || (nodes[link.source] = {name: link.disp});
+	  link.target = nodes[link.target] || (nodes[link.target] = {name: link.disp});
+	});
+	
+	// get width and height of the browser window
+	var w = window,
+    	d = document,
+    	e = d.documentElement,
+    	g = d.getElementsByTagName('body')[0],
+    	width = w.innerWidth || e.clientWidth || g.clientWidth,
+    	height = w.innerHeight|| e.clientHeight|| g.clientHeight;
+	height -= height * 0.2;
+
+    var force = d3.layout.force()
+        .nodes(d3.values(nodes))
+        .links(links)
+        .size([width, height])
+        .linkDistance(70)
+        .charge(-300)
+    	.on("tick", tick)
+    	.start();
+
+	var svg = d3.select("body").append("svg")
+    	.attr("width", width)
+    	.attr("height", height);
+
+	var link = svg.selectAll(".link")
+    	.data(force.links())
+  		.enter().append("line")
+    	.attr("class", "link");
+
+	var node = svg.selectAll(".node")
+    	.data(force.nodes())
+  		.enter().append("g")
+    	.attr("class", "node")
+    	.on("mouseover", mouseover)
+    	.on("mouseout", mouseout)
+    	.call(force.drag);
+
+	node.append("circle").attr("r", 16);
+ 	node.append("text").attr("x", 12).attr("dy", ".35em").text(function(d) { return d.name; });
+	
+	function tick() {
+		link
+			.attr("x1", function(d) { return d.source.x; })
+	     	.attr("y1", function(d) { return d.source.y; })
+	      	.attr("x2", function(d) { return d.target.x; })
+	      	.attr("y2", function(d) { return d.target.y; });
+		node
+	      	.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+	}
+}
+</script>
+</body>
+</html>
