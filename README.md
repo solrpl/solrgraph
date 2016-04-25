@@ -4,14 +4,14 @@ Simple tool allowing to visualize Solr graph query (http://solr.pl/en/2016/04/18
 ## Running
 * Download graph.html
 * Put graph.html to $SOLR_HOME/server/solr-webapp/webapp
-* Open http://localhost:8983/solr/graph.html in your favorite browser 
+* Open http://localhost:8983/solr/graph.html in your favorite browser
 
 ## Limitations
 * Not tested on larger data sets
 * Not pretty
 * Not resistant to CORS
 
-## Plans 
+## Plans
 * Test on larger data sets
 * Style it better
 * Make it resistant to CORS
@@ -22,7 +22,12 @@ Simple tool allowing to visualize Solr graph query (http://solr.pl/en/2016/04/18
 ## Changes
 Changes introduced with each version.
 
-### 0.1 ###
+### 0.2
+* Released 25.04.2016
+* Tooltip with document fields on mouse over graph node
+* Data loaded page by page
+
+### 0.1
 * Released 24.04.2016
 * Initial version
 * Allows providing basic information and visualize graph

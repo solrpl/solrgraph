@@ -16,9 +16,20 @@
   	stroke-width: 3px;
 }
 
+div.tooltip {
+  position: absolute;
+  text-align: left;
+  padding: 2px;
+  font: 12px sans-serif;
+  background: lightsteelblue;
+  border: 0px;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
 </style>
 <body>
-<!-- Horizontal bar with setup -->	
+<!-- Horizontal bar with setup -->
 <div class="container">
 	<form role="form">
 	<div class="row">
@@ -52,12 +63,6 @@
 			<input class="form-control" type="text" id="display" value="id">
 			</div>
 		</div>
-		<div class="col-sm-1">
-			<div class="form-group">
-			<label for="maxdocs">Max docs</label>
-			<input class="form-control" type="text" id="maxdocs" value="100">
-			</div>
-		</div>
 		<div class="col-sm-2">
 			<div class="form-group">
 			<label for="query">Query</label>
@@ -78,25 +83,31 @@
 	</div>
 </form>
 </div>
-<!-- End of vertical bar -->	
+<!-- End of vertical bar -->
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script src="//code.jquery.com/jquery-2.2.3.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
 <script>
-function mouseover() {
-  d3.select(this).select("circle").transition()
-      .duration(750)
-      .attr("r", 32);
+// general setup
+var DOCS_PER_RESULTS_PAGE = 10;
+
+// general DIV for tooltip
+var div = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
+
+function mouseover(d) {
+	div.transition().duration(200).style("opacity", .9);
+  div.html(d.sourceDoc).style("left", (d3.event.pageX) + "px").style("top", (d3.event.pageY - 28) + "px");
 }
 
 function mouseout() {
-  d3.select(this).select("circle").transition()
-      .duration(750)
-      .attr("r", 16);
+	div.transition().duration(500).style("opacity", 0);
 }
 
-function getLinks(data, from, to, id) {
+function getLinks(oldLinks, data, from, to, id) {
 	var links = [];
+	if (oldLinks != null) {
+		links = oldLinks;
+	}
 	var docs = data.response.docs;
 	for (var i in docs) {
 		var doc = docs[i];
@@ -105,33 +116,61 @@ function getLinks(data, from, to, id) {
 			link.source = doc[from];
 			link.target = doc[to];
 			link.disp = doc[id];
+			link.sourceDoc = getFields(doc);
 			links.push(link);
 			var link = {};
 			link.source = doc[to];
 			link.target = doc[from];
 			link.disp = doc[id];
+			link.sourceDoc = getFields(doc);
 			links.push(link);
 		} else if (doc.id != null) {
 			var link = {};
 			link.source = doc[to];
 			link.target = doc[to];
 			link.disp = doc[id];
+			link.sourceDoc = getFields(doc);
 			links.push(link);
-		} 
+		}
 	}
-	
 	return links;
 }
 
-function getData(solr, collection, from, to, query, id, maxDocs) {
-	var url = solr + "/solr/" + collection + "/select?q=*:*&rows=" + maxDocs + "&wt=json&fq={!graph from=" + from + " to=" + to + "}" + query;
+function getFields(doc) {
+	var fieldsAsString = "";
+	for (var i in doc) {
+		fieldsAsString += "<b>" + i + "</b>: " + doc[i] + "<br/>";
+	}
+	return fieldsAsString;
+}
+
+function getData(oldLinks, solr, collection, from, to, query, id, startDoc, pageSize) {
+	var url = getSolrQuery(solr, collection, from, to, query, id, startDoc, pageSize);
 	$.get( url, function( data ) {
 	 	var parsedData = JSON.parse(data);
-	 	var links = getLinks(parsedData, from, to, id);
-	  	display(links);
-	}).fail( function( data ) { 
+		var numFound = getNumResults(parsedData);
+		var links = null;
+		if (oldLinks != null) {
+			links = getLinks(oldLinks, parsedData, from, to, id);
+		} else {
+			links = getLinks(null, parsedData, from, to, id);
+		}
+		if (parseInt(startDoc) + parseInt(pageSize) <= parseInt(numFound)) {
+			getData(links, solr, collection, from, to, query, id, parseInt(startDoc) + parseInt(pageSize), pageSize);
+		} else {
+			display(links);
+		}
+	}).fail( function( data ) {
 		alert('Error running request, message: \n' + data.responseText);
 	});
+}
+
+function getNumResults(results) {
+	return results.response.numFound;
+}
+
+function getSolrQuery(solr, collection, from, to, query, id, startDoc, pageSize) {
+	return solr + "/solr/" + collection + "/select?q=*:*&start=" + startDoc + "&rows=" + pageSize + "&wt=json&fq={!graph from=" + from + " to=" + to + "}" + query;
 }
 
 function startDrawing() {
@@ -142,19 +181,19 @@ function startDrawing() {
 	var displayField = $("#display").val();
 	var query = $("#query").val();
 	var maxDocs = $("#maxdocs").val();
-	d3.select("svg").remove();	
-	getData(solrHost, collection, parentField, identifier, query, displayField, maxDocs);
+	d3.select("svg").remove();
+	getData(null, solrHost, collection, parentField, identifier, query, displayField, 0, DOCS_PER_RESULTS_PAGE);
 }
 
 function display(links) {
 	var nodes = {};
-	
+
 	// Compute the distinct nodes from the links.
 	links.forEach(function(link) {
-	  link.source = nodes[link.source] || (nodes[link.source] = {name: link.disp});
-	  link.target = nodes[link.target] || (nodes[link.target] = {name: link.disp});
+	  link.source = nodes[link.source] || (nodes[link.source] = {name: link.disp, sourceDoc: link.sourceDoc});
+	  link.target = nodes[link.target] || (nodes[link.target] = {name: link.disp, sourceDoc: link.sourceDoc});
 	});
-	
+
 	// get width and height of the browser window
 	var w = window,
     	d = document,
@@ -164,43 +203,43 @@ function display(links) {
     	height = w.innerHeight|| e.clientHeight|| g.clientHeight;
 	height -= height * 0.2;
 
-    var force = d3.layout.force()
-        .nodes(d3.values(nodes))
-        .links(links)
-        .size([width, height])
-        .linkDistance(70)
-        .charge(-300)
-    	.on("tick", tick)
-    	.start();
+  var force = d3.layout.force()
+		.nodes(d3.values(nodes))
+    .links(links)
+    .size([width, height])
+    .linkDistance(70)
+    .charge(-300)
+    .on("tick", tick)
+    .start();
 
 	var svg = d3.select("body").append("svg")
-    	.attr("width", width)
-    	.attr("height", height);
+    .attr("width", width)
+    .attr("height", height);
 
 	var link = svg.selectAll(".link")
-    	.data(force.links())
-  		.enter().append("line")
-    	.attr("class", "link");
+    .data(force.links())
+  	.enter().append("line")
+    .attr("class", "link");
 
 	var node = svg.selectAll(".node")
-    	.data(force.nodes())
-  		.enter().append("g")
-    	.attr("class", "node")
-    	.on("mouseover", mouseover)
-    	.on("mouseout", mouseout)
-    	.call(force.drag);
+    .data(force.nodes())
+  	.enter().append("g")
+    .attr("class", "node")
+    .on("mouseover", mouseover)
+    .on("mouseout", mouseout)
+    .call(force.drag);
 
 	node.append("circle").attr("r", 16);
  	node.append("text").attr("x", 12).attr("dy", ".35em").text(function(d) { return d.name; });
-	
+
 	function tick() {
 		link
 			.attr("x1", function(d) { return d.source.x; })
-	     	.attr("y1", function(d) { return d.source.y; })
-	      	.attr("x2", function(d) { return d.target.x; })
-	      	.attr("y2", function(d) { return d.target.y; });
+	    .attr("y1", function(d) { return d.source.y; })
+	    .attr("x2", function(d) { return d.target.x; })
+	    .attr("y2", function(d) { return d.target.y; });
 		node
-	      	.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+	    .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
 	}
 }
 </script>
