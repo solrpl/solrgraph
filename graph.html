@@ -7,7 +7,7 @@
 .link {
 	fill: none;
  	stroke: #600;
-  	stroke-width: 2px;
+  stroke-width: 2px;
 }
 
 .node circle {
@@ -27,10 +27,20 @@ div.tooltip {
   pointer-events: none;
 }
 
+.top {
+	background-color: #d1e0e0;
+	text-shadow: 1px 1px #ffffff;
+	color: #333333;
+	padding-bottom: 4px;
+	width: 100%;
+	border-bottom: 1px;
+	border-bottom-style: solid;
+}
+
 </style>
 <body>
 <!-- Horizontal bar with setup -->
-<div class="container">
+<div class="container top">
 	<form role="form">
 	<div class="row">
 		<div class="col-sm-2">
@@ -55,6 +65,12 @@ div.tooltip {
 			<div class="form-group">
 			<label for="identifier">Identifier</label>
 			<input class="form-control" type="text" id="identifier" value="id">
+			</div>
+		</div>
+		<div class="col-sm-1">
+			<div class="form-group">
+			<label for="mainQuery">Q param</label>
+			<input class="form-control" type="text" id="mainQuery" value="*:*">
 			</div>
 		</div>
 		<div class="col-sm-2">
@@ -144,8 +160,8 @@ function getFields(doc) {
 	return fieldsAsString;
 }
 
-function getData(oldLinks, solr, collection, from, to, query, id, startDoc, pageSize) {
-	var url = getSolrQuery(solr, collection, from, to, query, id, startDoc, pageSize);
+function getData(oldLinks, solr, collection, from, to, q, query, id, startDoc, pageSize) {
+	var url = getSolrQuery(solr, collection, from, to, q, query, id, startDoc, pageSize);
 	$.get( url, function( data ) {
 	 	var parsedData = JSON.parse(data);
 		var numFound = getNumResults(parsedData);
@@ -156,7 +172,7 @@ function getData(oldLinks, solr, collection, from, to, query, id, startDoc, page
 			links = getLinks(null, parsedData, from, to, id);
 		}
 		if (parseInt(startDoc) + parseInt(pageSize) <= parseInt(numFound)) {
-			getData(links, solr, collection, from, to, query, id, parseInt(startDoc) + parseInt(pageSize), pageSize);
+			getData(links, solr, collection, from, to, q, query, id, parseInt(startDoc) + parseInt(pageSize), pageSize);
 		} else {
 			display(links);
 		}
@@ -169,8 +185,8 @@ function getNumResults(results) {
 	return results.response.numFound;
 }
 
-function getSolrQuery(solr, collection, from, to, query, id, startDoc, pageSize) {
-	return solr + "/solr/" + collection + "/select?q=*:*&start=" + startDoc + "&rows=" + pageSize + "&wt=json&fq={!graph from=" + from + " to=" + to + "}" + query;
+function getSolrQuery(solr, collection, from, to, q, query, id, startDoc, pageSize) {
+	return solr + "/solr/" + collection + "/select?q=" + q + "&start=" + startDoc + "&rows=" + pageSize + "&wt=json&fq={!graph from=" + from + " to=" + to + "}" + query;
 }
 
 function startDrawing() {
@@ -179,10 +195,11 @@ function startDrawing() {
 	var parentField = $("#parent").val();
 	var identifier = $("#identifier").val();
 	var displayField = $("#display").val();
+	var qParam = $("#mainQuery").val();
 	var query = $("#query").val();
 	var maxDocs = $("#maxdocs").val();
 	d3.select("svg").remove();
-	getData(null, solrHost, collection, parentField, identifier, query, displayField, 0, DOCS_PER_RESULTS_PAGE);
+	getData(null, solrHost, collection, parentField, identifier, qParam, query, displayField, 0, DOCS_PER_RESULTS_PAGE);
 }
 
 function display(links) {
