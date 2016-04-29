@@ -1,6 +1,8 @@
 # solrgraph
 Simple tool allowing to visualize Solr graph query (http://solr.pl/en/2016/04/18/solr-6-0-and-graph-traversal-support/)
 
+![alt tag](https://raw.githubusercontent.com/solrpl/solrgraph/master/img/graph_visualization.png)
+
 ## Running
 * Download graph.html
 * Put graph.html to $SOLR_HOME/server/solr-webapp/webapp
