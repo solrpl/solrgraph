@@ -13,15 +13,12 @@ Simple tool allowing to visualize Solr graph query (http://solr.pl/en/2016/04/18
 * Not pretty
 * Not resistant to CORS
 
-## Plans
-* Test on larger data sets
-* Style it better
-* Make it resistant to CORS
-* Support for filtering in graph query
-* Support for all parameters allowed in graph query
-
 ## Changes
 Changes introduced with each version.
+
+### 0.4
+* Support for maxDepth parameter
+* Support for traversalFilter parameter
 
 ### 0.3
 * Released 29.04.2016
